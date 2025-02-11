@@ -1,0 +1,47 @@
+service: potion-backend-template
+
+configValidationMode: warn
+
+package:
+  individually: true
+
+provider:
+  name: aws
+  timeout: 15
+  runtime: nodejs18.x
+  stage: ${opt:stage, "staging"}
+  region: us-east-1
+  memorySize: 2048
+  profile: mucho
+  logs:
+    restApi: true
+  tracing:
+    lambda: true
+  environment:
+    STAGE: ${opt:stage, self:provider.stage, "dev"}
+
+functions:
+  walletsSyncJob:
+    handler: wallets/jobs/sync.handler
+
+  walletsTradesAPI:
+    handler: wallets/api/trades.handler
+    events:
+      - http:
+          path: wallets/trades
+          method: get
+          cors: true
+
+plugins:
+  - serverless-bundle
+  - serverless-prune-plugin
+
+custom:
+  bundle:
+    linting: false
+  prune:
+    automatic: true
+    number: 10
+  stages:
+    - staging
+    - prod
