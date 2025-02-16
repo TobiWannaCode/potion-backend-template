@@ -35,6 +35,7 @@ functions:
 plugins:
   - serverless-bundle
   - serverless-prune-plugin
+  - serverless-offline
 
 custom:
   bundle:
