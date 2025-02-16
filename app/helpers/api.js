@@ -1,6 +1,6 @@
 //import { parse } from "lambda-multipart-parser-v2";
 
-import * as Postgres from "./data/postgres-helper";
+import * as Postgres from "./data/postgres-helper.js";
 
 const parameterTypes = {
     query: 'queryStringParameters',
@@ -11,82 +11,65 @@ const parameterTypes = {
     none: 'none',
 };
 
-const getApp = (handler, config) => async (event, context, callback) => {
+const getApp = (handler, config) => async (event, context) => {
     const { validator, type, unknownParameters = false } = config;
 
     try {
         let data = {};
-        if (type === parameterTypes.sqs) {
-            if (event.Records != null && event.Records[0] != null) {
-                data = (typeof event.Records[0].body !== 'object') ? JSON.parse(event.Records[0].body) : event.Records[0].body;
-            } else {
-                data = (typeof event.sqsBody !== 'object' && event.sqsBody != null) ? JSON.parse(event.sqsBody) : (event.sqsBody != null ? event.sqsBody : {});
-            }
+        if (type === parameterTypes.query) {
+            data = event.queryStringParameters || {};
         } else if (type === parameterTypes.body) {
             data = (typeof event.body !== 'object') ? JSON.parse(event.body) : event.body;
-        } else if (type === parameterTypes.formData) {
-            try {
-                //data = await parse(event);
-            } catch (e) {
-                //console.log(e);
-                data = (typeof event.body !== 'object') ? JSON.parse(event.body) : event.body;
-            }
         } else if (type === parameterTypes.none) {
             data = {};
-            if(typeof event !== 'object') {
-                event = {};
-            }
         } else {
             data = event[type] || {};
         }
 
-        if(type !== parameterTypes.path && event[parameterTypes.path] != null) {
-            data = {
-                ...data,
-                ...event[parameterTypes.path]
-            };
-        }
+        // Validate the data if a validator is provided
+        if (validator) {
+            const validationResult = validator.validate(data, {
+                allowUnknown: unknownParameters,
+                abortEarly: false
+            });
 
-        if(event == null || event === '') {
-            event = {};
-        }
-
-        event.validData = {};
-        if(validator != null) {
-            event.validData = await validator.validateAsync(data, { allowUnknown: unknownParameters });
+            if (validationResult.error) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: 'Validation error',
+                        details: validationResult.error.details
+                    })
+                };
+            }
+            event.validData = validationResult.value;
         } else {
             event.validData = data;
         }
-        event.cache = {};
 
-        if(config.connectToDatabase) {
+        if (config.connectToDatabase) {
             await Postgres.startConnection();
         }
 
-    } catch (err) {
-        const eMessage = `invalid ${type}`;
-        console.error(eMessage, event[type]);
-        console.error(err);
-        return error400(eMessage);
-    }
+        const result = await handler(event, context);
 
-    let r = null;
-    try {
-        r = await handler(event, context, callback);
-    } catch (err) {
-        console.error('caught exception in handler', err);
-        r = error400();
-    }
-
-    if (config.connectToDatabase) {
-        if (process.env.STAGE !== 'prod') {
-            await Postgres.endConnection();
+        if (config.connectToDatabase) {
+            if (process.env.STAGE !== 'prod') {
+                await Postgres.endConnection();
+            }
         }
+
+        return result;
+    } catch (error) {
+        console.error('Error in handler:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'Internal server error',
+                error: error.message
+            })
+        };
     }
-
-    callback(null, r);
-
-    return r;
 };
 
 const getGenericResponse = (statusCode = 200, body = {}) => {
