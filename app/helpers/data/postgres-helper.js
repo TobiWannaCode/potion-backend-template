@@ -1,6 +1,6 @@
 import postgres from "postgres";
 
-import { POSTGRES } from "../constants";
+import { POSTGRES } from "../constants.js";
 
 let sql = null;
 

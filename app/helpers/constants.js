@@ -1,10 +1,10 @@
 // TODO: Hardcode your Postgres credentials here
 export const POSTGRES = {
     "postgresUsername": "postgres",
-    "postgresPassword": "password",
-    "postgresDatabase": "postgres",
-    "postgresPort": 6543,
-    "postgresURL": "aws-0-us-east-1.pooler.supabase.com"
+    "postgresPassword": "postgres",
+    "postgresDatabase": "potion",
+    "postgresPort": 5432,
+    "postgresURL": "db"
 };
 
 export const WALLETS = [
