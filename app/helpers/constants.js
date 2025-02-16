@@ -1,10 +1,17 @@
 // TODO: Hardcode your Postgres credentials here
+// Database Configuration
 export const POSTGRES = {
     "postgresUsername": "postgres",
     "postgresPassword": "postgres",
     "postgresDatabase": "potion",
     "postgresPort": 5432,
     "postgresURL": "db"
+};
+
+// Helius Configuration
+export const HELIUS = {
+    "apiKey": process.env.HELIUS_API_KEY,
+    "rpcUrl": process.env.HELIUS_RPC_URL || "https://mainnet.helius-rpc.com",
 };
 
 export const WALLETS = [

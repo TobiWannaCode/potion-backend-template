@@ -22,11 +22,16 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # Database Configuration
       - NODE_ENV=development
       - POSTGRES_HOST=db
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=potion
+      # Helius Configuration
+      - HELIUS_API_KEY=${HELIUS_API_KEY}
+      - HELIUS_RPC_URL=${HELIUS_RPC_URL}
+      - HELIUS_WEBHOOK_ID=${HELIUS_WEBHOOK_ID}
     depends_on:
       migration:
         condition: service_completed_successfully
