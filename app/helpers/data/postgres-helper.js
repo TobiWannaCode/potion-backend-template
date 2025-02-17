@@ -6,12 +6,12 @@ let sql = null;
 
 const startConnection = async () => {
     if (sql == null) {
-        // @ts-ignore
         sql = postgres(`postgresql://${POSTGRES.postgresUsername}:${POSTGRES.postgresPassword}@${POSTGRES.postgresURL}:${POSTGRES.postgresPort}/${POSTGRES.postgresDatabase}`, {
             prepare: false,
             connect_timeout: 12,
         });
     }
+    return sql;
 };
 
 const getOneByID = async (tableName, data, idName = 'id') => {
@@ -112,6 +112,9 @@ const updateOne = async (tableName, id, data, values, idName = 'id') => {
 
 const upsertTrades = async (trades) => {
     try {
+        // Ensure we have a connection
+        const sql = await startConnection();
+
         const queries = trades.map(trade => sql`
             INSERT INTO trades (
                 id,
