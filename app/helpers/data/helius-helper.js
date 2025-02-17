@@ -144,7 +144,6 @@ class HeliusHelper {
                 [
                     address,
                     {
-                        limit: 1000,
                         commitment: 'confirmed'
                     }
                 ],
