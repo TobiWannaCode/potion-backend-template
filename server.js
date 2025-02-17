@@ -3,6 +3,7 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { handler as tradesHandler } from './app/deployments/main/wallets/api/trades.js';
+import { handler as syncHandler } from './app/deployments/main/wallets/jobs/sync.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -39,6 +40,7 @@ const serverlessToExpress = (handler) => async (req, res) => {
 
 // Routes
 app.get('/wallets/trades', serverlessToExpress(tradesHandler));
+app.post('/wallets/sync', serverlessToExpress(syncHandler));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {

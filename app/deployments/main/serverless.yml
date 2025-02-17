@@ -23,6 +23,11 @@ provider:
 functions:
   walletsSyncJob:
     handler: wallets/jobs/sync.handler
+    events:
+      - http:
+          path: wallets/sync
+          method: post
+          cors: true
 
   walletsTradesAPI:
     handler: wallets/api/trades.handler
