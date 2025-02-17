@@ -10,7 +10,7 @@ const config = {
     connectToDatabase: true,
 };
 
-const mergeTrades = (existingTrade, newTrade) => {
+const mergeTrades = (existingTrade, newTrade, solPrice) => {
     // Parse numeric values, ensuring we have valid numbers
     const parseNumber = (value) => {
         if (typeof value === 'string') {
@@ -21,6 +21,10 @@ const mergeTrades = (existingTrade, newTrade) => {
 
     const totalInvestedSol = parseNumber(existingTrade.invested_sol) + parseNumber(newTrade.invested_sol);
     const totalRealizedPnl = parseNumber(existingTrade.realized_pnl) + parseNumber(newTrade.realized_pnl);
+    
+    // Calculate USD values using current SOL price
+    const totalInvestedSolUsd = totalInvestedSol * solPrice;
+    const totalRealizedPnlUsd = totalRealizedPnl * solPrice;
     
     return {
         ...newTrade,
@@ -36,11 +40,13 @@ const mergeTrades = (existingTrade, newTrade) => {
         sells: parseNumber(existingTrade.sells) + parseNumber(newTrade.sells),
         invested_sol: Number(totalInvestedSol.toFixed(8)), // Ensure 8 decimal places for SOL
         realized_pnl: Number(totalRealizedPnl.toFixed(8)), // Ensure 8 decimal places for SOL
+        invested_sol_usd: Number(totalInvestedSolUsd.toFixed(2)), // 2 decimal places for USD
+        realized_pnl_usd: Number(totalRealizedPnlUsd.toFixed(2)), // 2 decimal places for USD
         roi: totalInvestedSol > 0 ? Number((totalRealizedPnl / totalInvestedSol * 100).toFixed(2)) : 0 // 2 decimal places for percentage
     };
 };
 
-const processWallet = async (wallet) => {
+const processWallet = async (wallet, solPrice) => {
     try {
         console.log(`\nProcessing wallet: ${wallet}`);
         
@@ -93,12 +99,14 @@ const processWallet = async (wallet) => {
                 sells: data.metadata.sells,
                 invested_sol: data.metadata.invested_sol,
                 realized_pnl: data.metadata.realized_pnl,
+                invested_sol_usd: data.metadata.invested_sol * solPrice,
+                realized_pnl_usd: data.metadata.realized_pnl * solPrice,
                 roi: data.metadata.roi
             };
 
             // Merge with existing trade data if it exists
             const existingTrade = existingTradesMap[mint];
-            const mergedTrade = existingTrade ? mergeTrades(existingTrade, newTrade) : newTrade;
+            const mergedTrade = existingTrade ? mergeTrades(existingTrade, newTrade, solPrice) : newTrade;
             trades.push(mergedTrade);
         });
 
@@ -121,27 +129,28 @@ const processWallet = async (wallet) => {
     }
 };
 
-const handler = getApp(async () => {
+const handler = async (event, context) => {
     try {
-        console.log('Starting wallet sync job');
-        console.log('Wallets to process:', WALLETS);
+        // Get current SOL price once at the start
+        const solPrice = await heliusHelper.getSolPrice();
+        console.log('Current SOL price:', solPrice);
 
-        const results = [];
+        // Process each wallet with the same SOL price
         for (const wallet of WALLETS) {
-            const tradesProcessed = await processWallet(wallet);
-            results.push({ wallet, tradesProcessed });
+            await processWallet(wallet, solPrice);
         }
 
-        return response200({
-            message: 'Sync job completed',
-            results
-        });
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ message: 'Sync completed successfully' })
+        };
     } catch (error) {
-        console.error('Error in sync job:', error);
-        return response200({
-            error: error.message || 'Error in sync job'
-        });
+        console.error('Error in sync handler:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: error.message })
+        };
     }
-}, config);
+};
 
 export { handler };

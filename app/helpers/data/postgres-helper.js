@@ -123,7 +123,9 @@ const upsertTrades = async (trades) => {
                 buys,
                 sells,
                 invested_sol,
+                invested_sol_usd,
                 realized_pnl,
+                realized_pnl_usd,
                 roi
             ) VALUES (
                 ${trade.id},
@@ -135,7 +137,9 @@ const upsertTrades = async (trades) => {
                 ${trade.buys},
                 ${trade.sells},
                 ${trade.invested_sol},
+                ${trade.invested_sol_usd},
                 ${trade.realized_pnl},
+                ${trade.realized_pnl_usd},
                 ${trade.roi}
             )
             ON CONFLICT (id) DO UPDATE SET
@@ -144,7 +148,9 @@ const upsertTrades = async (trades) => {
                 buys = EXCLUDED.buys,
                 sells = EXCLUDED.sells,
                 invested_sol = EXCLUDED.invested_sol,
+                invested_sol_usd = EXCLUDED.invested_sol_usd,
                 realized_pnl = EXCLUDED.realized_pnl,
+                realized_pnl_usd = EXCLUDED.realized_pnl_usd,
                 roi = EXCLUDED.roi
         `);
 
@@ -196,34 +202,34 @@ const VALID_SORT_FIELDS = [
     'buys',
     'sells',
     'invested_sol',
+    'invested_sol_usd',
     'realized_pnl',
+    'realized_pnl_usd',
     'roi'
 ];
 
 const getWalletTradesSorted = async (wallet, sortBy = 'last_trade', sortByOrder = 'DESC') => {
     try {
-        // Validate sort field to prevent SQL injection
+        // Validate sort field
         if (!VALID_SORT_FIELDS.includes(sortBy)) {
-            throw new Error('Invalid sort field');
+            sortBy = 'last_trade';
         }
 
-        // Validate sort order to prevent SQL injection
-        const order = sortByOrder.toUpperCase();
-        if (!['ASC', 'DESC'].includes(order)) {
-            throw new Error('Invalid sort order');
-        }
+        // Validate sort order
+        const order = sortByOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-        // Create the order by clause using sql identifier for column name
         const result = await sql`
             SELECT 
-                token_name,
-                token_address,
-                first_trade,
-                last_trade,
-                buys,
-                sells,
+                token_name, 
+                token_address, 
+                first_trade, 
+                last_trade, 
+                buys, 
+                sells, 
                 invested_sol,
+                invested_sol_usd,
                 realized_pnl,
+                realized_pnl_usd,
                 roi
             FROM trades 
             WHERE wallet = ${wallet}

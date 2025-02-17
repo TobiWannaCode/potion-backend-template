@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 class HeliusHelper {
     constructor() {
         const apiKey = process.env.HELIUS_API_KEY;
@@ -349,6 +351,19 @@ class HeliusHelper {
         } catch (error) {
             console.error('[getTokenTransactions] Error:', error);
             throw new Error(`Failed to get token transactions for address ${address}: ${error.message}`);
+        }
+    }
+
+    async getSolPrice() {
+        try {
+            const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+            if (response.data && response.data.solana && response.data.solana.usd) {
+                return response.data.solana.usd;
+            }
+            throw new Error('Unable to get SOL price from CoinGecko');
+        } catch (error) {
+            console.error('Error fetching SOL price:', error);
+            throw error;
         }
     }
 }
