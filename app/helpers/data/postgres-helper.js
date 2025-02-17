@@ -189,6 +189,54 @@ const getWalletTrades = async (wallet) => {
     }
 };
 
+const VALID_SORT_FIELDS = [
+    'token_name',
+    'first_trade',
+    'last_trade',
+    'buys',
+    'sells',
+    'invested_sol',
+    'realized_pnl',
+    'roi'
+];
+
+const getWalletTradesSorted = async (wallet, sortBy = 'last_trade', sortByOrder = 'DESC') => {
+    try {
+        // Validate sort field to prevent SQL injection
+        if (!VALID_SORT_FIELDS.includes(sortBy)) {
+            throw new Error('Invalid sort field');
+        }
+
+        // Validate sort order to prevent SQL injection
+        const order = sortByOrder.toUpperCase();
+        if (!['ASC', 'DESC'].includes(order)) {
+            throw new Error('Invalid sort order');
+        }
+
+        // Create the order by clause using sql identifier for column name
+        const result = await sql`
+            SELECT 
+                token_name,
+                token_address,
+                first_trade,
+                last_trade,
+                buys,
+                sells,
+                invested_sol,
+                realized_pnl,
+                roi
+            FROM trades 
+            WHERE wallet = ${wallet}
+            ORDER BY ${sql(sortBy)} ${order === 'DESC' ? sql`DESC` : sql`ASC`}
+        `;
+
+        return result;
+    } catch (error) {
+        console.error('[getWalletTradesSorted] Error:', error);
+        throw error;
+    }
+};
+
 const endConnection = async () => {
     if(sql != null) {
         await sql.end();
@@ -209,5 +257,6 @@ export {
     updateOne,
     upsertTrades,
     getLatestTradeTimestamp,
-    getWalletTrades
+    getWalletTrades,
+    getWalletTradesSorted
 };
