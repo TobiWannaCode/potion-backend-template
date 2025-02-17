@@ -285,8 +285,18 @@ class HeliusHelper {
 
                                 // Update metadata
                                 const meta = mintData.metadata;
-                                meta.last_trade = transaction.blockTime;
+                                
+                                // Update first_trade if this transaction is older
+                                if (transaction.blockTime < meta.first_trade) {
+                                    meta.first_trade = transaction.blockTime;
+                                }
+                                
+                                // Update last_trade if this transaction is newer
+                                if (transaction.blockTime > meta.last_trade) {
+                                    meta.last_trade = transaction.blockTime;
+                                }
 
+                                // Update metadata
                                 if (transaction.success && solMovement) {
                                     const preBalance = transaction.preTokenBalances.find(b => b.mint === balance.mint);
                                     const postBalance = transaction.postTokenBalances.find(b => b.mint === balance.mint);
