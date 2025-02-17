@@ -175,6 +175,20 @@ const getLatestTradeTimestamp = async (wallet) => {
     }
 };
 
+const getWalletTrades = async (wallet) => {
+    try {
+        const result = await sql`
+            SELECT *
+            FROM trades
+            WHERE wallet = ${wallet}
+        `;
+        return result;
+    } catch (error) {
+        console.error('[getWalletTrades] Error:', error);
+        return [];
+    }
+};
+
 const endConnection = async () => {
     if(sql != null) {
         await sql.end();
@@ -194,5 +208,6 @@ export {
     upsertOne,
     updateOne,
     upsertTrades,
-    getLatestTradeTimestamp
+    getLatestTradeTimestamp,
+    getWalletTrades
 };

@@ -1,7 +1,7 @@
 import Joi from "joi";
 import heliusHelper from "../../../../helpers/data/helius-helper.js";
 import { getApp, parameterTypes, response200, response400 } from "../../../../helpers/api.js";
-import { startConnection, upsertTrades, getLatestTradeTimestamp } from "../../../../helpers/data/postgres-helper.js";
+import { startConnection, upsertTrades, getLatestTradeTimestamp, getWalletTrades } from "../../../../helpers/data/postgres-helper.js";
 
 const config = {
     type: parameterTypes.query,
@@ -12,6 +12,36 @@ const config = {
         days: Joi.number().integer().min(1).max(90).optional(),
         includeTransactions: Joi.boolean().optional()
     })
+};
+
+const mergeTrades = (existingTrade, newTrade) => {
+    // Parse numeric values, ensuring we have valid numbers
+    const parseNumber = (value) => {
+        if (typeof value === 'string') {
+            return parseFloat(value) || 0;
+        }
+        return typeof value === 'number' ? value : 0;
+    };
+
+    const totalInvestedSol = parseNumber(existingTrade.invested_sol) + parseNumber(newTrade.invested_sol);
+    const totalRealizedPnl = parseNumber(existingTrade.realized_pnl) + parseNumber(newTrade.realized_pnl);
+    
+    return {
+        ...newTrade,
+        first_trade: new Date(Math.min(
+            new Date(existingTrade.first_trade || newTrade.first_trade).getTime(),
+            new Date(newTrade.first_trade).getTime()
+        )),
+        last_trade: new Date(Math.max(
+            new Date(existingTrade.last_trade || newTrade.last_trade).getTime(),
+            new Date(newTrade.last_trade).getTime()
+        )),
+        buys: parseNumber(existingTrade.buys) + parseNumber(newTrade.buys),
+        sells: parseNumber(existingTrade.sells) + parseNumber(newTrade.sells),
+        invested_sol: Number(totalInvestedSol.toFixed(8)), // Ensure 8 decimal places for SOL
+        realized_pnl: Number(totalRealizedPnl.toFixed(8)), // Ensure 8 decimal places for SOL
+        roi: totalInvestedSol > 0 ? Number((totalRealizedPnl / totalInvestedSol * 100).toFixed(2)) : 0 // 2 decimal places for percentage
+    };
 };
 
 const handler = getApp(async (event) => {
@@ -45,6 +75,13 @@ const handler = getApp(async (event) => {
             startTime: startTime.toISOString()
         });
 
+        // Get existing trades from database
+        const existingTrades = await getWalletTrades(wallet);
+        const existingTradesMap = existingTrades.reduce((acc, trade) => {
+            acc[trade.token_address] = trade;
+            return acc;
+        }, {});
+
         const transactionsByMint = await heliusHelper.getTokenTransactions(wallet, startTime);
         
         // Convert the data structure and prepare database records
@@ -54,22 +91,8 @@ const handler = getApp(async (event) => {
         Object.entries(transactionsByMint).forEach(([mint, data]) => {
             if (mint === 'SOL') return;
             
-            // Prepare response metadata
-            tokenMetadata[mint] = {
-                contractAddress: mint,
-                tokenName: data.metadata.token_name,
-                totalBought: data.metadata.buys,
-                totalSold: data.metadata.sells,
-                totalSolSpent: data.metadata.invested_sol,
-                totalSolReceived: data.metadata.total_sol_received,
-                realizedPnl: data.metadata.realized_pnl,
-                roi: data.metadata.roi,
-                firstTrade: data.metadata.first_trade,
-                lastTrade: data.metadata.last_trade
-            };
-
-            // Prepare database record
-            trades.push({
+            // Prepare base trade data
+            const newTrade = {
                 id: `${wallet}|${mint}`,
                 wallet,
                 token_name: data.metadata.token_name,
@@ -81,7 +104,26 @@ const handler = getApp(async (event) => {
                 invested_sol: data.metadata.invested_sol,
                 realized_pnl: data.metadata.realized_pnl,
                 roi: data.metadata.roi
-            });
+            };
+
+            // Merge with existing trade data if it exists
+            const existingTrade = existingTradesMap[mint];
+            const mergedTrade = existingTrade ? mergeTrades(existingTrade, newTrade) : newTrade;
+            trades.push(mergedTrade);
+            
+            // Prepare response metadata
+            tokenMetadata[mint] = {
+                contractAddress: mint,
+                tokenName: mergedTrade.token_name,
+                totalBought: mergedTrade.buys,
+                totalSold: mergedTrade.sells,
+                totalSolSpent: mergedTrade.invested_sol,
+                totalSolReceived: mergedTrade.total_sol_received,
+                realizedPnl: mergedTrade.realized_pnl,
+                roi: mergedTrade.roi,
+                firstTrade: mergedTrade.first_trade,
+                lastTrade: mergedTrade.last_trade
+            };
 
             if (includeTransactions) {
                 tokenMetadata[mint].transactions = data.transactions.map(tx => ({
@@ -97,7 +139,7 @@ const handler = getApp(async (event) => {
             }
         });
 
-        // Insert trades into database
+        // Insert merged trades into database
         if (trades.length > 0) {
             const success = await upsertTrades(trades);
             if (!success) {
