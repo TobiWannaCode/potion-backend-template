@@ -160,7 +160,7 @@ class HeliusHelper {
             // Filter signatures by time
             const filteredSignatures = signatures.filter(sig => {
                 const txTime = new Date(sig.blockTime * 1000);
-                return txTime >= new Date(startTime) && txTime <= endTime;
+                return txTime > new Date(startTime) && txTime <= endTime;
             });
 
             console.log(`[getTokenTransactions] Filtered to ${filteredSignatures.length} signatures within time range`);

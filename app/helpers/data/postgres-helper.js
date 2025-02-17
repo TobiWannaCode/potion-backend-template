@@ -110,6 +110,71 @@ const updateOne = async (tableName, id, data, values, idName = 'id') => {
     }
 }
 
+const upsertTrades = async (trades) => {
+    try {
+        const queries = trades.map(trade => sql`
+            INSERT INTO trades (
+                id,
+                wallet,
+                token_name,
+                token_address,
+                first_trade,
+                last_trade,
+                buys,
+                sells,
+                invested_sol,
+                realized_pnl,
+                roi
+            ) VALUES (
+                ${trade.id},
+                ${trade.wallet},
+                ${trade.token_name},
+                ${trade.token_address},
+                ${trade.first_trade},
+                ${trade.last_trade},
+                ${trade.buys},
+                ${trade.sells},
+                ${trade.invested_sol},
+                ${trade.realized_pnl},
+                ${trade.roi}
+            )
+            ON CONFLICT (id) DO UPDATE SET
+                first_trade = EXCLUDED.first_trade,
+                last_trade = EXCLUDED.last_trade,
+                buys = EXCLUDED.buys,
+                sells = EXCLUDED.sells,
+                invested_sol = EXCLUDED.invested_sol,
+                realized_pnl = EXCLUDED.realized_pnl,
+                roi = EXCLUDED.roi
+        `);
+
+        await sql.begin(async sql => {
+            for (const query of queries) {
+                await query;
+            }
+        });
+
+        return true;
+    } catch (error) {
+        console.error('[upsertTrades] Error:', error);
+        return false;
+    }
+};
+
+const getLatestTradeTimestamp = async (wallet) => {
+    try {
+        const result = await sql`
+            SELECT MAX(last_trade) as latest_trade
+            FROM trades
+            WHERE wallet = ${wallet}
+        `;
+        return result[0]?.latest_trade || null;
+    } catch (error) {
+        console.error('[getLatestTradeTimestamp] Error:', error);
+        return null;
+    }
+};
+
 const endConnection = async () => {
     if(sql != null) {
         await sql.end();
@@ -122,10 +187,12 @@ export {
     startConnection,
     endConnection,
     getOneByID,
+    selectMany,
+    selectOne,
     insertOne,
     insertMany,
-    updateOne,
-    selectOne,
-    selectMany,
     upsertOne,
+    updateOne,
+    upsertTrades,
+    getLatestTradeTimestamp
 };
