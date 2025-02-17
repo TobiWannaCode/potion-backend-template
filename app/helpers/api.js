@@ -91,6 +91,13 @@ const response200 = (body = {}) => {
     });
 }
 
+const response400 = (message = '400', body = {}) => {
+    return getGenericResponse(400, {
+        ...body,
+        message,
+    });
+}
+
 // Bad Request
 const error400 = (message = '400', body = {}) => {
     return getGenericResponse(400, {
@@ -120,6 +127,7 @@ export {
     getApp,
     getGenericResponse,
     response200,
+    response400,
     error400,
     error401,
     error404

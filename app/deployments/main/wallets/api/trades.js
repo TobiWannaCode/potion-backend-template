@@ -1,38 +1,33 @@
-import _ from "lodash";
 import Joi from "joi";
-import * as Trades from "../../../../models/trades.js";
-import { getApp, parameterTypes, response200 } from "../../../../helpers/api.js";
+import heliusHelper from "../../../../helpers/data/helius-helper.js";
+import { getApp, parameterTypes, response200, response400 } from "../../../../helpers/api.js";
 
 const config = {
     type: parameterTypes.query,
     unknownParameters: true,
-    connectToDatabase: true,
     validator: Joi.object({
-        wallet: Joi.string(),
-        token_address: Joi.string(),
-        sortBy: Joi.string().valid("last_trade", "roi", "invested_sol").optional(),
-        sortDirection: Joi.string().valid("ASC", "DESC").optional(),
+        wallet: Joi.string().pattern(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/),
+        days: Joi.number().integer().min(1).max(90).optional()
     })
 };
 
 const handler = getApp(async (event) => {
-    const { wallet, token_address, sortBy = "last_trade", sortDirection = "DESC" } = event.validData;
+    const { wallet, days = 30 } = event.validData;
 
-    let trades;
-    if (wallet) {
-        trades = await Trades.searchByWallet(wallet, sortBy, sortDirection);
-    } else if (token_address) {
-        trades = await Trades.searchByToken(token_address, sortBy, sortDirection);
-    } else {
-        trades = [];
+    if (!wallet) {
+        return response400("Wallet address is required");
     }
 
-    return response200({
-        trades: trades,
-        count: trades.length,
-        sortBy,
-        sortDirection
-    });
+    try {
+        const transactions = await heliusHelper.getTokenTransactions(wallet, days);
+        return response200({ transactions });
+    } catch (error) {
+        console.error('Error fetching transactions:', error);
+        return response200({ 
+            transactions: [],
+            error: error.message || 'Error fetching transactions'
+        });
+    }
 }, config);
 
 export { handler };
