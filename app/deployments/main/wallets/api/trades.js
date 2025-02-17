@@ -20,7 +20,13 @@ const handler = getApp(async (event) => {
     }
 
     try {
-        const transactionsByMint = await heliusHelper.getTokenTransactions(wallet, days);
+        // Calculate start of day N days ago
+        const now = new Date();
+        const startTime = new Date(now);
+        startTime.setDate(startTime.getDate() - days);
+        startTime.setHours(0, 0, 0, 0); // Set to start of day
+
+        const transactionsByMint = await heliusHelper.getTokenTransactions(wallet, startTime);
         
         // Convert the data structure
         const tokenMetadata = {};

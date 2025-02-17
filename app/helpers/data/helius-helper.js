@@ -126,19 +126,15 @@ class HeliusHelper {
         }
     }
 
-    async getTokenTransactions(address, days) {
+    async getTokenTransactions(address, startTime) {
         try {
             console.log('\n[getTokenTransactions] Starting transaction fetch', {
                 address,
-                days,
-                startTime: new Date(Date.now() - (days * 24 * 60 * 60 * 1000)).toISOString(),
+                startTime: new Date(startTime).toISOString(),
                 endTime: new Date().toISOString()
             });
 
-            // Calculate start time
             const endTime = new Date();
-            const startTime = new Date(endTime);
-            startTime.setDate(startTime.getDate() - days);
 
             // Get signatures for the address
             const signaturesData = await this.makeRpcCall(
@@ -164,7 +160,7 @@ class HeliusHelper {
             // Filter signatures by time
             const filteredSignatures = signatures.filter(sig => {
                 const txTime = new Date(sig.blockTime * 1000);
-                return txTime >= startTime && txTime <= endTime;
+                return txTime >= new Date(startTime) && txTime <= endTime;
             });
 
             console.log(`[getTokenTransactions] Filtered to ${filteredSignatures.length} signatures within time range`);
